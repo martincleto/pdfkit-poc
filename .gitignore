@@ -1,5 +1,6 @@
 # folders
 /node_modules
+/__coverage__
 
 # Files
 /public/*.pdf

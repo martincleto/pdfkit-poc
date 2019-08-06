@@ -1,6 +1,5 @@
 const fetch = require('node-fetch');
 const fs = require('fs');
-const path = require('path');
 const PDFDocument = require('pdfkit');
 
 // const FONTS_URL = 'https://aplanet-static.ams3.digitaloceanspaces.com/fonts';
@@ -66,8 +65,6 @@ const drawItem = function(kpi) {
       })
       .moveDown(0.5);
 
-  // this.font(fontsSource.regular, 14);
-
   if (childrenKpis.length) {
     for (let i = 0, len = childrenKpis.length; i < len; i++) {
       const childKpiCode = childrenKpis[i].code;
@@ -90,7 +87,25 @@ const drawItem = function(kpi) {
 
     this.moveDown();
   }
-}
+};
+
+const drawChapter = function(group, title) {
+  drawGroupCover.call(this, group, title);
+
+  this.addPage({
+    margins: {
+      top: 35,
+      bottom: 50,
+      left: 0,
+      right: 50
+    },
+    size: 'A4'
+  });
+
+  for (let i = 0, len = group.length; i < len; i++) {
+    drawItem.call(this, group[i]);
+  }
+};
 
 const createPDF = data => {
   const doc = new PDFDocument({
@@ -100,16 +115,6 @@ const createPDF = data => {
 
   const fileName = 'example.pdf'; // @TODO Compose dynamically file name according the creator
 
-  const pageSetupOpts = {
-    margins: {
-      top: 35,
-      bottom: 50,
-      left: 0,
-      right: 50
-    },
-    size: 'A4'
-  };
-
   const kpis = {
     gri100: getKpiByGroup.call(data, '1'),
     gri200: getKpiByGroup.call(data, '2'),
@@ -118,64 +123,28 @@ const createPDF = data => {
     gri900: getKpiByGroup.call(data, '9'),
   };
 
-  // console.log('GRI 100 is ', kpis.gri100.length);
-  // console.log('GRI 200 is ', kpis.gri200.length);
-  // console.log('GRI 300 is ', kpis.gri300.length);
-  // console.log('GRI 400 is ', kpis.gri400.length);
-  // console.log('GRI 900 is ', kpis.gri900.length);
-
 
   doc.pipe(fs.createWriteStream(`${__dirname}/public/${fileName}`))
   //doc.pipe(blobStream());
 
   if (kpis.gri100.length) {
-    drawGroupCover.call(doc, kpis.gri100, 'GRI 100 UNIVERSAL');
-
-    doc.addPage(pageSetupOpts);
-
-    for (let i = 0, len = kpis.gri100.length; i < len; i++) {
-      drawItem.call(doc, kpis.gri100[i]);
-    }
+    drawChapter.call(doc, kpis.gri100, 'GRI 100 UNIVERSAL');
   }
 
   if (kpis.gri200.length) {
-    drawGroupCover.call(doc, kpis.gri200, 'GRI 200 ECONOMIC');
-
-    doc.addPage(pageSetupOpts);
-
-    for (let i = 0, len = kpis.gri200.length; i < len; i++) {
-      drawItem.call(doc, kpis.gri200[i]);
-    }
+    drawChapter.call(doc, kpis.gri200, 'GRI 100 ECONOMIC');
   }
 
   if (kpis.gri300.length) {
-    drawGroupCover.call(doc, kpis.gri300, 'GRI 300 ENVIRONMENTAL');
-
-    doc.addPage(pageSetupOpts);
-
-    for (let i = 0, len = kpis.gri300.length; i < len; i++) {
-      drawItem.call(doc, kpis.gri300[i]);
-    }
+    drawChapter.call(doc, kpis.gri300, 'GRI 100 ENVIRONMENTAL');
   }
 
   if (kpis.gri400.length) {
-    drawGroupCover.call(doc, kpis.gri400, 'GRI 400 SOCIAL');
-
-    doc.addPage(pageSetupOpts);
-
-    for (let i = 0, len = kpis.gri400.length; i < len; i++) {
-      drawItem.call(doc, kpis.gri400[i]);
-    }
+    drawChapter.call(doc, kpis.gri400, 'GRI 100 SOCIAL');
   }
 
   if (kpis.gri900.length) {
-    drawGroupCover.call(doc, kpis.gri900, 'GRI 900 CUSTOM');
-
-    doc.addPage(pageSetupOpts);
-
-    for (let i = 0, len = kpis.gri900.length; i < len; i++) {
-      drawItem.call(doc, kpis.gri900[i]);
-    }
+    drawChapter.call(doc, kpis.gri900, 'GRI 100 CUSTOM');
   }
 
   doc.end();
