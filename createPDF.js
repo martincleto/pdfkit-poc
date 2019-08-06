@@ -5,8 +5,10 @@ const PDFDocument = require('pdfkit');
 
 // const FONTS_URL = 'https://aplanet-static.ams3.digitaloceanspaces.com/fonts';
 const FONTS_URL = 'public/fonts';
-const A4_WIDTH = 595;
-const A4_HEIGHT = 842;
+const A4_WIDTH = 595.28;
+const A4_HEIGHT = 841.89;
+const BODY_COL_WIDTH = 445;
+const TEXT_COLOR = '#444444';
 
 const fontsSource = {
   regular: `${FONTS_URL}/OpenSans-Regular.ttf`,
@@ -29,7 +31,10 @@ const drawGroupCover = function(group, title) {
     title.substr(sep+1)
   ];
 
-  this.addPage();
+  this.addPage({
+    margin: 0,
+    size: 'A4'
+  });
   this.rect(0, 0, A4_WIDTH, A4_HEIGHT).fill(coverBgColor);
   this.rect(0, 206, A4_WIDTH, 164).fill('#FFFFFF');
   this
@@ -43,24 +48,67 @@ const drawGroupCover = function(group, title) {
 };
 
 const drawItem = function(kpi) {
-  //this.rect(0, 0, A4_WIDTH, 50).fill(kpi.color);
+  const childrenKpis = kpi.kpis;
+
+  this.rect(0, this.y, 90, 22).fill(kpi.color);
 
   this
-      .font(fontsSource.regular, 18)
-      .text(`x: ${this.x} - y: ${this.y}`)
-      .text(kpi.code)
-      .text(kpi.slug)
-      .moveDown()
+      .fill('#FFFFFF')
+      .font(fontsSource.bold, 16)
+      .text(kpi.code, 0, this.y, { 
+        width: 82,
+        align: 'right'
+      })
+      .fill(TEXT_COLOR)
+      .font(fontsSource.bold, 18)
+      .text(kpi.slug.replace(/[-]/g, ' '), 100, this.y - 24, {
+        width: BODY_COL_WIDTH - 82
+      })
+      .moveDown(0.5);
+
+  // this.font(fontsSource.regular, 14);
+
+  if (childrenKpis.length) {
+    for (let i = 0, len = childrenKpis.length; i < len; i++) {
+      const childKpiCode = childrenKpis[i].code;
+      const epigraphKey = childKpiCode.slice(childKpiCode.indexOf('.')+1);
+      const epigraphName = `${epigraphKey}. ${childrenKpis[i].name}`.replace(/[-]/g, ' ');
+    
+      this
+        .fill(kpi.color)
+        .font(fontsSource.bold, 14)
+        .text(epigraphName.slice(0, epigraphKey.length+1), {
+          continued: true
+        })
+        .fill(TEXT_COLOR)
+        .font(fontsSource.regular)
+        .text(epigraphName.slice(epigraphKey.length+1), {
+          lineBreak: false
+        })
+        .moveDown();
+    }
+
+    this.moveDown();
+  }
 }
 
 const createPDF = data => {
   const doc = new PDFDocument({
     autoFirstPage: false,
-    size: 'A4',
-    margin: 0
+    size: 'A4'
   });
 
   const fileName = 'example.pdf'; // @TODO Compose dynamically file name according the creator
+
+  const pageSetupOpts = {
+    margins: {
+      top: 35,
+      bottom: 50,
+      left: 0,
+      right: 50
+    },
+    size: 'A4'
+  };
 
   const kpis = {
     gri100: getKpiByGroup.call(data, '1'),
@@ -70,11 +118,11 @@ const createPDF = data => {
     gri900: getKpiByGroup.call(data, '9'),
   };
 
-  console.log('GRI 100 is ', kpis.gri100.length);
-  console.log('GRI 200 is ', kpis.gri200.length);
-  console.log('GRI 300 is ', kpis.gri300.length);
-  console.log('GRI 400 is ', kpis.gri400.length);
-  console.log('GRI 900 is ', kpis.gri900.length);
+  // console.log('GRI 100 is ', kpis.gri100.length);
+  // console.log('GRI 200 is ', kpis.gri200.length);
+  // console.log('GRI 300 is ', kpis.gri300.length);
+  // console.log('GRI 400 is ', kpis.gri400.length);
+  // console.log('GRI 900 is ', kpis.gri900.length);
 
 
   doc.pipe(fs.createWriteStream(`${__dirname}/public/${fileName}`))
@@ -83,11 +131,7 @@ const createPDF = data => {
   if (kpis.gri100.length) {
     drawGroupCover.call(doc, kpis.gri100, 'GRI 100 UNIVERSAL');
 
-    doc.addPage();
-
-    doc
-      .fill('#444444')
-      
+    doc.addPage(pageSetupOpts);
 
     for (let i = 0, len = kpis.gri100.length; i < len; i++) {
       drawItem.call(doc, kpis.gri100[i]);
@@ -96,18 +140,42 @@ const createPDF = data => {
 
   if (kpis.gri200.length) {
     drawGroupCover.call(doc, kpis.gri200, 'GRI 200 ECONOMIC');
+
+    doc.addPage(pageSetupOpts);
+
+    for (let i = 0, len = kpis.gri200.length; i < len; i++) {
+      drawItem.call(doc, kpis.gri200[i]);
+    }
   }
 
   if (kpis.gri300.length) {
     drawGroupCover.call(doc, kpis.gri300, 'GRI 300 ENVIRONMENTAL');
+
+    doc.addPage(pageSetupOpts);
+
+    for (let i = 0, len = kpis.gri300.length; i < len; i++) {
+      drawItem.call(doc, kpis.gri300[i]);
+    }
   }
 
   if (kpis.gri400.length) {
     drawGroupCover.call(doc, kpis.gri400, 'GRI 400 SOCIAL');
+
+    doc.addPage(pageSetupOpts);
+
+    for (let i = 0, len = kpis.gri400.length; i < len; i++) {
+      drawItem.call(doc, kpis.gri400[i]);
+    }
   }
 
   if (kpis.gri900.length) {
     drawGroupCover.call(doc, kpis.gri900, 'GRI 900 CUSTOM');
+
+    doc.addPage(pageSetupOpts);
+
+    for (let i = 0, len = kpis.gri900.length; i < len; i++) {
+      drawItem.call(doc, kpis.gri900[i]);
+    }
   }
 
   doc.end();
