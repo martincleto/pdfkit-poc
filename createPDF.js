@@ -7,6 +7,7 @@ const FONTS_URL = 'public/fonts';
 const A4_WIDTH = 595.28;
 const A4_HEIGHT = 841.89;
 const BODY_COL_WIDTH = 445;
+const PAGE_TOP_MARGIN = 35;
 const TEXT_COLOR = '#444444';
 
 const fontsSource = {
@@ -19,11 +20,13 @@ const fontsSource = {
 };
 
 const getKpiByGroup = function(key) {
-  return this.filter(kpi => kpi.code.startsWith(key));
+  return this.filter(kpi => kpi.code.startsWith(key)).pop() || { children: []};
 };
 
-const drawGroupCover = function(group, title) {
-  const coverBgColor = group[0].color;
+const composeChapterTitle = group => `GRI ${group.code} ${group.slug}`.toUpperCase();
+
+const drawChapterCover = function(group, title, logo) {
+  const coverBgColor = group.color;
   const sep = title.lastIndexOf(' ');
   const titleText = [
     title.substr(0, sep),
@@ -42,8 +45,35 @@ const drawGroupCover = function(group, title) {
       .font(fontsSource.extraBold, 58)
       .text(titleText[0], 36, 220)
       .text(titleText[1], 36, 280);
+  
+  this.image('public/images/aplanetW.png', 170, 775, { width: 110 });
+  this.image('public/images/aplanetW.png', 300, 775, { width: 110 });
+};
 
-  // this.image('public/images/aplanetW.png', 240, 775, { width: 110 });
+const drawSection = function(groupCategory) {
+  const sectionTitle = `${groupCategory.code} ${groupCategory.slug}`.replace(/[-]/g, ' ');
+
+  this.addPage({
+    margins: {
+      top: PAGE_TOP_MARGIN,
+      bottom: 50,
+      left: 0,
+      right: 50
+    },
+    size: 'A4'
+  });
+
+  this.rect(0, this.y - PAGE_TOP_MARGIN, A4_WIDTH, 90).fill(groupCategory.color);
+
+  this
+    .fill('#FFFFFF')
+    .font(fontsSource.extraBold, 26)
+    .text(sectionTitle, 35, this.y - 10)
+    .moveDown(1.8)
+
+  for (let i = 0, len = groupCategory.children.length; i < len; i++) {
+    drawItem.call(this, groupCategory.children[i]);
+  }
 };
 
 const drawItem = function(kpi) {
@@ -69,7 +99,7 @@ const drawItem = function(kpi) {
     for (let i = 0, len = childrenKpis.length; i < len; i++) {
       const childKpiCode = childrenKpis[i].code;
       const epigraphKey = childKpiCode.slice(childKpiCode.indexOf('.')+1);
-      const epigraphName = `${epigraphKey}. ${childrenKpis[i].name}`.replace(/[-]/g, ' ');
+      const epigraphName = `${epigraphKey}. ${childrenKpis[i].slug}`.replace(/[-]/g, ' ');
     
       this
         .fill(kpi.color)
@@ -79,9 +109,10 @@ const drawItem = function(kpi) {
         })
         .fill(TEXT_COLOR)
         .font(fontsSource.regular)
-        .text(epigraphName.slice(epigraphKey.length+1), {
-          lineBreak: false
-        })
+        .text(epigraphName.slice(epigraphKey.length+1))
+        .fill(TEXT_COLOR)
+        .font(fontsSource.bold, 12)
+        .text(childrenKpis[i].kpi_value)
         .moveDown();
     }
 
@@ -89,69 +120,76 @@ const drawItem = function(kpi) {
   }
 };
 
-const drawChapter = function(group, title) {
-  drawGroupCover.call(this, group, title);
+const drawChapter = function(group, title, logo) {
+  drawChapterCover.call(this, group, title, logo);
 
-  this.addPage({
-    margins: {
-      top: 35,
-      bottom: 50,
-      left: 0,
-      right: 50
-    },
-    size: 'A4'
-  });
+  const groupCategories = group.children;
 
-  for (let i = 0, len = group.length; i < len; i++) {
-    drawItem.call(this, group[i]);
+  for (let i = 0, len = groupCategories.length; i < len; i++) {
+    drawSection.call(this, groupCategories[i]);
   }
 };
 
 const createPDF = data => {
+  const report = data.report;
+  const fileName = `${report.period}_${report.slug}.pdf`;
+  const organizationLogo = report.organization_logo;
+
+  console.time(`${fileName} generated in`);
+
+  const tree = report.category_tree;
+
   const doc = new PDFDocument({
     autoFirstPage: false,
     size: 'A4'
   });
 
-  const fileName = 'example.pdf'; // @TODO Compose dynamically file name according the creator
-
   const kpis = {
-    gri100: getKpiByGroup.call(data, '1'),
-    gri200: getKpiByGroup.call(data, '2'),
-    gri300: getKpiByGroup.call(data, '3'),
-    gri400: getKpiByGroup.call(data, '4'),
-    gri900: getKpiByGroup.call(data, '9'),
+    gri100: getKpiByGroup.call(tree, '1'),
+    gri200: getKpiByGroup.call(tree, '2'),
+    gri300: getKpiByGroup.call(tree, '3'),
+    gri400: getKpiByGroup.call(tree, '4'),
+    gri900: getKpiByGroup.call(tree, '9'),
   };
 
+  doc.pipe(fs.createWriteStream(`${__dirname}/public/${fileName}`));
 
-  doc.pipe(fs.createWriteStream(`${__dirname}/public/${fileName}`))
-  //doc.pipe(blobStream());
+  console.info(`Generating ${fileName} ...`);
 
-  if (kpis.gri100.length) {
-    drawChapter.call(doc, kpis.gri100, 'GRI 100 UNIVERSAL');
+  let chapterTitle;
+
+  if (kpis.gri100.children.length) {
+    chapterTitle = composeChapterTitle(kpis.gri100);
+    drawChapter.call(doc, kpis.gri100, chapterTitle, organizationLogo);
   }
 
-  if (kpis.gri200.length) {
-    drawChapter.call(doc, kpis.gri200, 'GRI 100 ECONOMIC');
+  if (kpis.gri200.children.length) {
+    chapterTitle = composeChapterTitle(kpis.gri200);
+    drawChapter.call(doc, kpis.gri200, chapterTitle, organizationLogo);
   }
 
-  if (kpis.gri300.length) {
-    drawChapter.call(doc, kpis.gri300, 'GRI 100 ENVIRONMENTAL');
+  if (kpis.gri300.children.length) {
+    chapterTitle = composeChapterTitle(kpis.gri300);
+    drawChapter.call(doc, kpis.gri300, chapterTitle, organizationLogo);
   }
 
-  if (kpis.gri400.length) {
-    drawChapter.call(doc, kpis.gri400, 'GRI 100 SOCIAL');
+  if (kpis.gri400.children.length) {
+    chapterTitle = composeChapterTitle(kpis.gri400);
+    drawChapter.call(doc, kpis.gri400, chapterTitle, organizationLogo);
   }
 
-  if (kpis.gri900.length) {
-    drawChapter.call(doc, kpis.gri900, 'GRI 100 CUSTOM');
+  if (kpis.gri900.children.length) {
+    chapterTitle = composeChapterTitle(kpis.gri900);
+    drawChapter.call(doc, kpis.gri900, chapterTitle, organizationLogo);
   }
 
   doc.end();
+
+  console.timeEnd(`${fileName} generated in`);
 };
 
 module.exports = () => {
-  return fetch('http://localhost:5000/static/_mockData.json')
+  return fetch('http://localhost:5000/static/data.json')
     .then(res => res.json())
     .then(json => {
       createPDF(json);

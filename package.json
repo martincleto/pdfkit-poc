@@ -22,8 +22,9 @@
     "collectCoverage": true,
     "collectCoverageFrom": [
       "**/*.js",
+      "!**/__coverage__/**",
       "!**/node_modules/**",
-      "!**/__coverage__/**"
+      "!**/public/**"
     ],
     "coverageDirectory": "__coverage__",
     "coverageThreshold": {
@@ -36,7 +37,8 @@
     },
     "setupFiles": [
       "./setupTest.js"
-    ]
+    ],
+    "verbose": true
   },
   "devDependencies": {
     "jest": "^24.8.0",
